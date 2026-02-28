@@ -32,6 +32,10 @@ See:
 - `docs/USER_MANUAL.md`
 - `docs/07_integrations/os_kernel_foundry.md`
 
+## Ultra-detailed manual
+
+- `docs/USER_MANUAL.md`
+
 ## Install
 
 ```bash
