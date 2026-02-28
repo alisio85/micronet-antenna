@@ -178,6 +178,7 @@ cargo run -p micronet-live
 - `h`: broadcast heartbeat (citizenship online)
 - `v`: toggle selected node policy (`ACCEPT` / `REJECT`)
 - `x`: toggle network partition/heal scenario
+- `l`: cycle packet loss rate (0% -> 10% -> 30% -> 50% -> 0%)
 
 ## 6. Micronet OS (built on `os_kernel_foundry`)
 

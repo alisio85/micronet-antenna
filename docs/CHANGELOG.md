@@ -9,6 +9,7 @@ This project follows a lightweight changelog discipline.
   - Added `history` and `events` commands.
 - Enhanced `micronet-live` demo:
   - Added `x` to toggle a partition/heal network scenario.
+  - Added `l` to cycle packet loss rate.
 
 ## 0.1.0
 

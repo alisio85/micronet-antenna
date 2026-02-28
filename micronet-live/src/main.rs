@@ -28,6 +28,7 @@ struct App {
     selected: usize,
     tick: u64,
     partitioned: bool,
+    loss_percent: u8,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -76,6 +77,7 @@ fn run_app(
                     KeyCode::Char('h') => app.broadcast_heartbeat(),
                     KeyCode::Char('v') => app.toggle_policy(app.selected),
                     KeyCode::Char('x') => app.toggle_partition(),
+                    KeyCode::Char('l') => app.cycle_loss(),
                     _ => {}
                 }
             }
@@ -113,6 +115,7 @@ impl App {
             selected: 0,
             tick: 0,
             partitioned: false,
+            loss_percent: 0,
         };
 
         app.bootstrap_gossip();
@@ -164,6 +167,18 @@ impl App {
             if !self.can_deliver(from, to) {
                 self.push_log(format!("net: DROP n{} -> n{} (partition)", from, to));
                 continue;
+            }
+
+            if self.loss_percent > 0 {
+                let mut rng = rand::thread_rng();
+                let roll: u8 = rng.gen_range(0..100);
+                if roll < self.loss_percent {
+                    self.push_log(format!(
+                        "net: DROP n{} -> n{} (loss={}%)",
+                        from, to, self.loss_percent
+                    ));
+                    continue;
+                }
             }
 
             let events = self.nodes[to].rt.apply(msg);
@@ -267,6 +282,19 @@ impl App {
             self.push_log("scenario: network healed (press x)".to_string());
         }
     }
+
+    fn cycle_loss(&mut self) {
+        self.loss_percent = match self.loss_percent {
+            0 => 10,
+            10 => 30,
+            30 => 50,
+            _ => 0,
+        };
+        self.push_log(format!(
+            "scenario: PACKET LOSS set to {}% (press l)",
+            self.loss_percent
+        ));
+    }
 }
 
 fn ui(f: &mut ratatui::Frame, app: &App) {
@@ -290,7 +318,7 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     let header = Paragraph::new(Line::from(vec![
         Span::styled("Micronet Live", Style::default().fg(Color::Cyan)),
         Span::raw("  "),
-        Span::raw("q=quit  p=propose  h=heartbeat  v=toggle auto-vote  x=partition/heal"),
+        Span::raw("q=quit  p=propose  h=heartbeat  v=toggle auto-vote  x=partition/heal  l=loss"),
         Span::raw("  "),
         Span::styled(
             format!("net={partition_status}"),
@@ -298,6 +326,15 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
                 Color::Red
             } else {
                 Color::Green
+            }),
+        ),
+        Span::raw("  "),
+        Span::styled(
+            format!("loss={} %", app.loss_percent),
+            Style::default().fg(if app.loss_percent == 0 {
+                Color::Green
+            } else {
+                Color::Yellow
             }),
         ),
         Span::raw("  "),
