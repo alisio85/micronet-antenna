@@ -2,7 +2,13 @@
 
 `micronet-antenna` is a Rust crate that provides the **"spirit"** of a network-native micronation kernel: identity, proposal/vote flows, and global-state synchronization primitives.
 
-This repository also includes `micronet-os`, a workspace member that turns the components into an **actual Micronation OS composition** built on `os_kernel_foundry`.
+This repository is a **multi-crate workspace**:
+
+- `micronet-antenna-core` (deterministic `no_std + alloc` core)
+- `micronet-antenna` (std wrapper + UDP transport + CLI)
+- `micronet-live` (TUI multi-node simulation demo, `publish = false`)
+- `micronet-os` (Micronation OS composition on `os_kernel_foundry`, `publish = false`)
+- `foundry-demo` (integration example)
 
 ## Vision (network-native micronation)
 
@@ -15,11 +21,22 @@ This repository also includes `micronet-os`, a workspace member that turns the c
 
 This is an **early, minimal, well-documented foundation**:
 
-- Message types (proposal/vote/heartbeat)
-- Node identity (`NodeId`)
-- A deterministic global state update model (`GlobalState`)
-- A small in-process runtime (`Runtime`) to apply messages
-- A simple UDP transport (std-only) for peer discovery/gossip
+- Deterministic message types (proposal / vote / heartbeat)
+- Stable identities (`NodeId`) and proposal ids (`ProposalId`)
+- Replicated state model (`GlobalState`) + deterministic transition function (`Runtime::apply`)
+- Consensus decision derivation via vote rule (simple majority)
+- Std-only adapters:
+  - UDP transport (postcard)
+  - CLI demo binary
+- Demos:
+  - `micronet-live` TUI with failure scenarios
+  - `micronet-os` interactive shell + replay/persistence
+
+Not (yet) production-grade:
+
+- cryptographic identity/signatures
+- stable protocol versioning
+- byzantine fault tolerance
 
 ## Micronation OS (built on `os_kernel_foundry`)
 
@@ -31,6 +48,15 @@ See:
 
 - `docs/USER_MANUAL.md`
 - `docs/07_integrations/os_kernel_foundry.md`
+
+### `micronet-os` shell commands (high-level)
+
+- `help`, `status`, `list`
+- `hello`, `heartbeat`
+- `propose <kind> <payload...>`, `vote <proposal_id_hex> <yes|no>`
+- `export-state`
+- `replay [n]`
+- `save-log <path>`, `load-log <path>`
 
 ## Ultra-detailed manual
 
@@ -47,6 +73,11 @@ See:
 ```bash
 cargo add micronet-antenna
 ```
+
+## Workspace layout
+
+- If you need `no_std`, depend on `micronet-antenna-core`.
+- If you want transports + demos, use `micronet-antenna` (std).
 
 ## Quick start (library)
 
@@ -67,12 +98,46 @@ assert!(state.proposals().len() >= 1);
 cargo run --bin micronet-antenna -- --help
 ```
 
+## UDP demo (two terminals)
+
+Terminal A:
+
+```bash
+cargo run --bin micronet-antenna -- 127.0.0.1:4000 127.0.0.1:4001
+```
+
+Terminal B:
+
+```bash
+cargo run --bin micronet-antenna -- 127.0.0.1:4001 127.0.0.1:4000
+```
+
 ## Micronation Live (TUI demo)
 
 From the workspace root:
 
 ```bash
 cargo run -p micronet-live
+```
+
+Controls:
+
+- `q`: quit
+- `←/→`: select node
+- `p`: propose
+- `h`: broadcast heartbeat
+- `v`: toggle node auto-vote policy
+- `x`: partition/heal scenario
+- `l`: cycle packet loss rate
+- `d`: cycle delivery delay/latency
+
+## Useful workspace commands
+
+```bash
+cargo fmt --all
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-features
+cargo doc --workspace --no-deps --all-features
 ```
 
 ## Licensing

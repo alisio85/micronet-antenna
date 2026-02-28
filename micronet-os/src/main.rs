@@ -179,7 +179,7 @@ fn shell_loop(kernel: &mut Kernel<MicronetArch>) -> io::Result<()> {
         match cmd {
             "help" => {
                 println!(
-                    "Commands:\n  help\n    Show this help\n  status\n    Print local runtime status\n  hello\n    Apply a Hello message for this node\n  heartbeat\n    Apply a Heartbeat message for this node\n  propose <kind> <payload...>\n    Create a proposal; payload consumes the rest of the line\n  vote <proposal_id_hex> <yes|no>\n    Vote on a proposal id (64 hex chars)\n  list\n    List proposals and their decision state\n  export-state\n    Print a readable snapshot of the local state\n  replay [n]\n    Rebuild the runtime and replay the last n messages (default: all)\n  events [n]\n    Print the last n applied runtime events (default 25)\n  history [n]\n    Print the last n commands (default 25)\n  quit\n    Exit the shell"
+                    "Commands:\n  help\n    Show this help\n  status\n    Print local runtime status\n  hello\n    Apply a Hello message for this node\n  heartbeat\n    Apply a Heartbeat message for this node\n  propose <kind> <payload...>\n    Create a proposal; payload consumes the rest of the line\n  vote <proposal_id_hex> <yes|no>\n    Vote on a proposal id (64 hex chars)\n  list\n    List proposals and their decision state\n  export-state\n    Print a readable snapshot of the local state\n  replay [n]\n    Rebuild the runtime and replay the last n messages (default: all)\n  save-log <path>\n    Save the in-process message log to a file (postcard)\n  load-log <path>\n    Load a message log from a file (postcard) and replay it\n  events [n]\n    Print the last n applied runtime events (default 25)\n  history [n]\n    Print the last n commands (default 25)\n  quit\n    Exit the shell"
                 );
             }
             "quit" | "exit" => break,
@@ -303,6 +303,69 @@ fn shell_loop(kernel: &mut Kernel<MicronetArch>) -> io::Result<()> {
 
                 event_log.extend(replay_events);
                 println!("replay complete: applied {n} messages");
+            }
+            "save-log" => {
+                let path = parts.next().unwrap_or("");
+                if path.is_empty() {
+                    println!("usage: save-log <path>");
+                    continue;
+                }
+
+                let bytes = match postcard::to_stdvec(&message_log) {
+                    Ok(b) => b,
+                    Err(e) => {
+                        println!("serialization error: {e}");
+                        continue;
+                    }
+                };
+
+                if let Err(e) = std::fs::write(path, bytes) {
+                    println!("write error: {e}");
+                    continue;
+                }
+                println!("saved {} messages to {path}", message_log.len());
+            }
+            "load-log" => {
+                let path = parts.next().unwrap_or("");
+                if path.is_empty() {
+                    println!("usage: load-log <path>");
+                    continue;
+                }
+
+                let bytes = match std::fs::read(path) {
+                    Ok(b) => b,
+                    Err(e) => {
+                        println!("read error: {e}");
+                        continue;
+                    }
+                };
+
+                let loaded: Vec<Message> = match postcard::from_bytes(&bytes) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        println!("decode error: {e}");
+                        continue;
+                    }
+                };
+
+                message_log = loaded;
+
+                let node_id = kernel.arch().nation.node_id();
+                kernel.arch_mut().nation = Runtime::new(node_id);
+
+                let mut replay_events: Vec<String> = Vec::new();
+                for msg in message_log.iter().cloned() {
+                    let events = kernel.arch_mut().nation.apply(msg);
+                    for e in events {
+                        replay_events.push(format!("{:?}", e));
+                    }
+                }
+                event_log.extend(replay_events);
+
+                println!(
+                    "loaded and replayed {} messages from {path}",
+                    message_log.len()
+                );
             }
             "events" => {
                 let n = parts

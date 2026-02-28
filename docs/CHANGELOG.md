@@ -8,6 +8,7 @@ This project follows a lightweight changelog discipline.
   - `propose` supports multi-word payloads.
   - Added `history` and `events` commands.
   - Added `export-state` and `replay` commands.
+  - Added `save-log` and `load-log` commands.
 - Enhanced `micronet-live` demo:
   - Added `x` to toggle a partition/heal network scenario.
   - Added `l` to cycle packet loss rate.

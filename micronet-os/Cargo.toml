@@ -6,7 +6,8 @@ publish = false
 
 [dependencies]
 os_kernel_foundry = "0.1.5"
-micronet-antenna-core = { path = "../micronet-antenna-core", features = ["std"] }
+micronet-antenna-core = { path = "../micronet-antenna-core", features = ["std", "serde"] }
+postcard = "1"
 
 [[bin]]
 name = "micronet-os"

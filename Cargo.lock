@@ -356,6 +356,7 @@ version = "0.1.0"
 dependencies = [
  "micronet-antenna-core",
  "os_kernel_foundry",
+ "postcard",
 ]
 
 [[package]]
