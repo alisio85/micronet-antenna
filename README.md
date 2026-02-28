@@ -36,6 +36,12 @@ See:
 
 - `docs/USER_MANUAL.md`
 
+## Project docs policy
+
+- `CONTRIBUTING.md`
+- `docs/MAINTAINERS_GUIDE.md`
+- `docs/CHANGELOG.md`
+
 ## Install
 
 ```bash

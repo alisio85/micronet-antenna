@@ -221,3 +221,10 @@ cargo clippy --workspace --all-targets --all-features -- -D warnings
 ```bash
 cargo doc --workspace --no-deps --all-features
 ```
+
+## 8. Documentation maintenance policy
+
+This repository treats documentation as part of the product.
+
+- Contribution rules: `CONTRIBUTING.md`
+- Maintainer policy: `docs/MAINTAINERS_GUIDE.md`

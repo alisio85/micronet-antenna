@@ -2,12 +2,22 @@ use crate::{Error, Message, Result};
 
 use std::net::{SocketAddr, UdpSocket};
 
+/// A minimal UDP transport adapter.
+///
+/// - Non-blocking socket
+/// - Single configured peer address
+/// - Serialization via `postcard` (requires `micronet-antenna-core/serde`)
+///
+/// This is intentionally a demo-quality adapter to validate the message model.
 pub struct UdpTransport {
     sock: UdpSocket,
     peer: SocketAddr,
 }
 
 impl UdpTransport {
+    /// Binds a UDP socket and configures a single peer address.
+    ///
+    /// The socket is configured as non-blocking.
     pub fn bind(local: SocketAddr, peer: SocketAddr) -> Result<Self> {
         let sock = UdpSocket::bind(local)?;
         sock.set_nonblocking(true)?;

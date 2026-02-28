@@ -5,6 +5,8 @@ This folder is the long-form documentation for **Micronet Antenna**.
 ## Contents
 
 - `USER_MANUAL.md`
+- `MAINTAINERS_GUIDE.md`
+- `CHANGELOG.md`
 - `00_vision.md`
 - `01_architecture.md`
 - `02_protocol.md`
