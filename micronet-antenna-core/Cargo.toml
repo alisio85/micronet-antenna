@@ -4,8 +4,9 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT"
 description = "no_std core primitives for micronet-antenna (identity, messages, proposals/votes, deterministic state/runtime)."
-homepage = "https://github.com/your-org/micronet-antenna"
-repository = "https://github.com/your-org/micronet-antenna"
+homepage = "https://github.com/alisio85/micronet-antenna"
+repository = "https://github.com/alisio85/micronet-antenna"
+documentation = "https://docs.rs/micronet-antenna-core"
 
 [features]
 default = ["alloc"]
