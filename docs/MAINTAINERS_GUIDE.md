@@ -20,6 +20,26 @@ When releasing:
 - ensure `cargo doc --workspace --no-deps --all-features` is clean
 - update `README.md` examples if constructors/features changed
 
+## Publishing to crates.io
+
+This repository includes a GitHub Actions workflow:
+
+- `.github/workflows/publish.yml`
+
+Triggers:
+
+- `push` on tags matching `v*` (recommended for real releases)
+- manual `workflow_dispatch` (supports a dry-run mode)
+
+Required secret:
+
+- `CARGO_REGISTRY_TOKEN` (a crates.io API token with publish permission)
+
+Publish order:
+
+- `micronet-antenna-core`
+- `micronet-antenna`
+
 ## Keeping docs updated (policy)
 
 Every merged PR must satisfy:

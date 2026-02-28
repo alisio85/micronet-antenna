@@ -30,6 +30,10 @@ cargo test --workspace --all-features
 cargo doc --workspace --no-deps --all-features
 ```
 
+## Publishing
+
+Publishing to crates.io is a maintainer action. See `docs/MAINTAINERS_GUIDE.md` and the workflow `.github/workflows/publish.yml`.
+
 ## Commit messages
 
 Use imperative present tense, for example:
