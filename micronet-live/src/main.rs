@@ -23,12 +23,13 @@ struct Node {
 
 struct App {
     nodes: Vec<Node>,
-    queue: VecDeque<(usize, usize, Message)>,
+    queue: VecDeque<(usize, usize, u64, Message)>,
     log: VecDeque<String>,
     selected: usize,
     tick: u64,
     partitioned: bool,
     loss_percent: u8,
+    delay_ticks: u64,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -78,6 +79,7 @@ fn run_app(
                     KeyCode::Char('v') => app.toggle_policy(app.selected),
                     KeyCode::Char('x') => app.toggle_partition(),
                     KeyCode::Char('l') => app.cycle_loss(),
+                    KeyCode::Char('d') => app.cycle_delay(),
                     _ => {}
                 }
             }
@@ -116,6 +118,7 @@ impl App {
             tick: 0,
             partitioned: false,
             loss_percent: 0,
+            delay_ticks: 0,
         };
 
         app.bootstrap_gossip();
@@ -142,7 +145,8 @@ impl App {
     }
 
     fn enqueue(&mut self, from: usize, to: usize, msg: Message) {
-        self.queue.push_back((from, to, msg));
+        let deliver_at = self.tick.saturating_add(self.delay_ticks);
+        self.queue.push_back((from, to, deliver_at, msg));
     }
 
     fn can_deliver(&self, from: usize, to: usize) -> bool {
@@ -160,9 +164,14 @@ impl App {
 
         let deliver = (self.nodes.len() * 2).max(1);
         for _ in 0..deliver {
-            let Some((from, to, msg)) = self.queue.pop_front() else {
+            let Some((from, to, deliver_at, msg)) = self.queue.pop_front() else {
                 break;
             };
+
+            if deliver_at > self.tick {
+                self.queue.push_back((from, to, deliver_at, msg));
+                continue;
+            }
 
             if !self.can_deliver(from, to) {
                 self.push_log(format!("net: DROP n{} -> n{} (partition)", from, to));
@@ -295,6 +304,19 @@ impl App {
             self.loss_percent
         ));
     }
+
+    fn cycle_delay(&mut self) {
+        self.delay_ticks = match self.delay_ticks {
+            0 => 2,
+            2 => 5,
+            5 => 10,
+            _ => 0,
+        };
+        self.push_log(format!(
+            "scenario: LATENCY set to {} ticks (press d)",
+            self.delay_ticks
+        ));
+    }
 }
 
 fn ui(f: &mut ratatui::Frame, app: &App) {
@@ -318,7 +340,9 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
     let header = Paragraph::new(Line::from(vec![
         Span::styled("Micronet Live", Style::default().fg(Color::Cyan)),
         Span::raw("  "),
-        Span::raw("q=quit  p=propose  h=heartbeat  v=toggle auto-vote  x=partition/heal  l=loss"),
+        Span::raw(
+            "q=quit  p=propose  h=heartbeat  v=toggle auto-vote  x=partition/heal  l=loss  d=delay",
+        ),
         Span::raw("  "),
         Span::styled(
             format!("net={partition_status}"),
@@ -332,6 +356,15 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         Span::styled(
             format!("loss={} %", app.loss_percent),
             Style::default().fg(if app.loss_percent == 0 {
+                Color::Green
+            } else {
+                Color::Yellow
+            }),
+        ),
+        Span::raw("  "),
+        Span::styled(
+            format!("delay={}t", app.delay_ticks),
+            Style::default().fg(if app.delay_ticks == 0 {
                 Color::Green
             } else {
                 Color::Yellow

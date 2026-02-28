@@ -1,4 +1,4 @@
-use micronet_antenna_core::{Message, NodeId, Runtime};
+use micronet_antenna_core::{Decision, Message, NodeId, Runtime};
 use os_kernel_foundry::arch::{AddressTranslator, Architecture, InterruptController, Timer};
 use os_kernel_foundry::boot::{BootContext, BootError, BootStage};
 use os_kernel_foundry::kernel::Kernel;
@@ -155,6 +155,7 @@ fn shell_loop(kernel: &mut Kernel<MicronetArch>) -> io::Result<()> {
     let mut line = String::new();
     let mut history: Vec<String> = Vec::new();
     let mut event_log: Vec<String> = Vec::new();
+    let mut message_log: Vec<Message> = Vec::new();
 
     loop {
         print!("micronet> ");
@@ -178,7 +179,7 @@ fn shell_loop(kernel: &mut Kernel<MicronetArch>) -> io::Result<()> {
         match cmd {
             "help" => {
                 println!(
-                    "Commands:\n  help\n    Show this help\n  status\n    Print local runtime status\n  hello\n    Apply a Hello message for this node\n  heartbeat\n    Apply a Heartbeat message for this node\n  propose <kind> <payload...>\n    Create a proposal; payload consumes the rest of the line\n  vote <proposal_id_hex> <yes|no>\n    Vote on a proposal id (64 hex chars)\n  list\n    List proposals and their decision state\n  events [n]\n    Print the last n applied runtime events (default 25)\n  history [n]\n    Print the last n commands (default 25)\n  quit\n    Exit the shell"
+                    "Commands:\n  help\n    Show this help\n  status\n    Print local runtime status\n  hello\n    Apply a Hello message for this node\n  heartbeat\n    Apply a Heartbeat message for this node\n  propose <kind> <payload...>\n    Create a proposal; payload consumes the rest of the line\n  vote <proposal_id_hex> <yes|no>\n    Vote on a proposal id (64 hex chars)\n  list\n    List proposals and their decision state\n  export-state\n    Print a readable snapshot of the local state\n  replay [n]\n    Rebuild the runtime and replay the last n messages (default: all)\n  events [n]\n    Print the last n applied runtime events (default 25)\n  history [n]\n    Print the last n commands (default 25)\n  quit\n    Exit the shell"
                 );
             }
             "quit" | "exit" => break,
@@ -190,12 +191,16 @@ fn shell_loop(kernel: &mut Kernel<MicronetArch>) -> io::Result<()> {
             }
             "hello" => {
                 let node = kernel.arch().nation.node_id();
-                let events = kernel.arch_mut().nation.apply(Message::Hello { node });
+                let msg = Message::Hello { node };
+                message_log.push(msg.clone());
+                let events = kernel.arch_mut().nation.apply(msg);
                 print_events(events, &mut event_log);
             }
             "heartbeat" => {
                 let node = kernel.arch().nation.node_id();
-                let events = kernel.arch_mut().nation.apply(Message::Heartbeat { node });
+                let msg = Message::Heartbeat { node };
+                message_log.push(msg.clone());
+                let events = kernel.arch_mut().nation.apply(msg);
                 print_events(events, &mut event_log);
             }
             "propose" => {
@@ -215,7 +220,9 @@ fn shell_loop(kernel: &mut Kernel<MicronetArch>) -> io::Result<()> {
 
                 let p = micronet_antenna_core::Proposal::new(kind, payload.as_bytes().to_vec());
                 let pid = p.id;
-                let events = kernel.arch_mut().nation.apply(Message::Proposal(p));
+                let msg = Message::Proposal(p);
+                message_log.push(msg.clone());
+                let events = kernel.arch_mut().nation.apply(msg);
                 print_events(events, &mut event_log);
                 println!("proposal_id={}", hex32(pid.0));
             }
@@ -235,13 +242,15 @@ fn shell_loop(kernel: &mut Kernel<MicronetArch>) -> io::Result<()> {
                 let accept = matches!(decision, "yes" | "y" | "true" | "1");
                 let pid = micronet_antenna_core::ProposalId::new(pid_bytes);
                 let from = kernel.arch().nation.node_id();
-                let events = kernel.arch_mut().nation.apply(Message::Vote {
+                let msg = Message::Vote {
                     from,
                     vote: micronet_antenna_core::Vote {
                         proposal_id: pid,
                         accept,
                     },
-                });
+                };
+                message_log.push(msg.clone());
+                let events = kernel.arch_mut().nation.apply(msg);
                 print_events(events, &mut event_log);
             }
             "list" => {
@@ -250,6 +259,50 @@ fn shell_loop(kernel: &mut Kernel<MicronetArch>) -> io::Result<()> {
                     let d = st.decision(*pid);
                     println!("{}  kind={}  decision={:?}", hex32(pid.0), p.kind, d);
                 }
+            }
+            "export-state" => {
+                let st = kernel.arch().nation.state();
+                println!("node_id={}", hex32(kernel.arch().nation.node_id().0));
+                println!("peers={}", st.peers().len());
+                for (i, peer) in st.peers().iter().enumerate() {
+                    println!("  peer[{i}]={}", hex32(peer.0));
+                }
+
+                println!("proposals={}", st.proposals().len());
+                for (pid, p) in st.proposals() {
+                    let d = st.decision(*pid).unwrap_or(Decision::Pending);
+                    println!(
+                        "  proposal={} kind={} decision={:?} payload_len={}",
+                        hex32(pid.0),
+                        p.kind,
+                        d,
+                        p.payload.len()
+                    );
+                }
+
+                println!("message_log_len={}", message_log.len());
+            }
+            "replay" => {
+                let n = parts
+                    .next()
+                    .and_then(|s| s.parse::<usize>().ok())
+                    .unwrap_or(message_log.len());
+                let start = message_log.len().saturating_sub(n);
+                let to_replay = message_log[start..].to_vec();
+
+                let node_id = kernel.arch().nation.node_id();
+                kernel.arch_mut().nation = Runtime::new(node_id);
+
+                let mut replay_events: Vec<String> = Vec::new();
+                for msg in to_replay {
+                    let events = kernel.arch_mut().nation.apply(msg);
+                    for e in events {
+                        replay_events.push(format!("{:?}", e));
+                    }
+                }
+
+                event_log.extend(replay_events);
+                println!("replay complete: applied {n} messages");
             }
             "events" => {
                 let n = parts

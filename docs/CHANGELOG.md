@@ -7,9 +7,11 @@ This project follows a lightweight changelog discipline.
 - Improved `micronet-os` interactive shell:
   - `propose` supports multi-word payloads.
   - Added `history` and `events` commands.
+  - Added `export-state` and `replay` commands.
 - Enhanced `micronet-live` demo:
   - Added `x` to toggle a partition/heal network scenario.
   - Added `l` to cycle packet loss rate.
+  - Added `d` to cycle message delay/latency.
 
 ## 0.1.0
 
