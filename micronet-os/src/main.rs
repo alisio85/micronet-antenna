@@ -153,6 +153,8 @@ fn main() {
 fn shell_loop(kernel: &mut Kernel<MicronetArch>) -> io::Result<()> {
     let stdin = io::stdin();
     let mut line = String::new();
+    let mut history: Vec<String> = Vec::new();
+    let mut event_log: Vec<String> = Vec::new();
 
     loop {
         print!("micronet> ");
@@ -168,13 +170,15 @@ fn shell_loop(kernel: &mut Kernel<MicronetArch>) -> io::Result<()> {
             continue;
         }
 
+        history.push(input.to_string());
+
         let mut parts = input.split_whitespace();
         let cmd = parts.next().unwrap_or("");
 
         match cmd {
             "help" => {
                 println!(
-                    "Commands:\n  help\n  status\n  hello\n  heartbeat\n  propose <kind> <payload>\n  vote <proposal_id_hex> <yes|no>\n  list\n  quit"
+                    "Commands:\n  help\n    Show this help\n  status\n    Print local runtime status\n  hello\n    Apply a Hello message for this node\n  heartbeat\n    Apply a Heartbeat message for this node\n  propose <kind> <payload...>\n    Create a proposal; payload consumes the rest of the line\n  vote <proposal_id_hex> <yes|no>\n    Vote on a proposal id (64 hex chars)\n  list\n    List proposals and their decision state\n  events [n]\n    Print the last n applied runtime events (default 25)\n  history [n]\n    Print the last n commands (default 25)\n  quit\n    Exit the shell"
                 );
             }
             "quit" | "exit" => break,
@@ -187,24 +191,32 @@ fn shell_loop(kernel: &mut Kernel<MicronetArch>) -> io::Result<()> {
             "hello" => {
                 let node = kernel.arch().nation.node_id();
                 let events = kernel.arch_mut().nation.apply(Message::Hello { node });
-                print_events(events);
+                print_events(events, &mut event_log);
             }
             "heartbeat" => {
                 let node = kernel.arch().nation.node_id();
                 let events = kernel.arch_mut().nation.apply(Message::Heartbeat { node });
-                print_events(events);
+                print_events(events, &mut event_log);
             }
             "propose" => {
-                let kind = parts.next().unwrap_or("");
-                let payload = parts.next().unwrap_or("");
+                let remainder = input.strip_prefix("propose").unwrap_or("").trim_start();
+                let mut rem_parts = remainder.split_whitespace();
+                let kind = rem_parts.next().unwrap_or("");
                 if kind.is_empty() {
-                    println!("usage: propose <kind> <payload>");
+                    println!("usage: propose <kind> <payload...>");
                     continue;
                 }
+
+                let payload = remainder.strip_prefix(kind).unwrap_or("").trim_start();
+                if payload.is_empty() {
+                    println!("usage: propose <kind> <payload...>");
+                    continue;
+                }
+
                 let p = micronet_antenna_core::Proposal::new(kind, payload.as_bytes().to_vec());
                 let pid = p.id;
                 let events = kernel.arch_mut().nation.apply(Message::Proposal(p));
-                print_events(events);
+                print_events(events, &mut event_log);
                 println!("proposal_id={}", hex32(pid.0));
             }
             "vote" => {
@@ -230,13 +242,33 @@ fn shell_loop(kernel: &mut Kernel<MicronetArch>) -> io::Result<()> {
                         accept,
                     },
                 });
-                print_events(events);
+                print_events(events, &mut event_log);
             }
             "list" => {
                 let st = kernel.arch().nation.state();
                 for (pid, p) in st.proposals() {
                     let d = st.decision(*pid);
                     println!("{}  kind={}  decision={:?}", hex32(pid.0), p.kind, d);
+                }
+            }
+            "events" => {
+                let n = parts
+                    .next()
+                    .and_then(|s| s.parse::<usize>().ok())
+                    .unwrap_or(25);
+                let start = event_log.len().saturating_sub(n);
+                for (idx, e) in event_log[start..].iter().enumerate() {
+                    println!("{:>4}: {}", start + idx + 1, e);
+                }
+            }
+            "history" => {
+                let n = parts
+                    .next()
+                    .and_then(|s| s.parse::<usize>().ok())
+                    .unwrap_or(25);
+                let start = history.len().saturating_sub(n);
+                for (idx, h) in history[start..].iter().enumerate() {
+                    println!("{:>4}: {}", start + idx + 1, h);
                 }
             }
             _ => {
@@ -248,9 +280,11 @@ fn shell_loop(kernel: &mut Kernel<MicronetArch>) -> io::Result<()> {
     Ok(())
 }
 
-fn print_events(events: Vec<micronet_antenna_core::RuntimeEvent>) {
+fn print_events(events: Vec<micronet_antenna_core::RuntimeEvent>, log: &mut Vec<String>) {
     for e in events {
-        println!("{:?}", e);
+        let s = format!("{:?}", e);
+        println!("{s}");
+        log.push(s);
     }
 }
 

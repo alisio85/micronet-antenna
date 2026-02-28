@@ -4,7 +4,11 @@ This project follows a lightweight changelog discipline.
 
 ## Unreleased
 
-- TBD
+- Improved `micronet-os` interactive shell:
+  - `propose` supports multi-word payloads.
+  - Added `history` and `events` commands.
+- Enhanced `micronet-live` demo:
+  - Added `x` to toggle a partition/heal network scenario.
 
 ## 0.1.0
 

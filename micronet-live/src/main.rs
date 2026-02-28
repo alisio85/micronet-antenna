@@ -23,10 +23,11 @@ struct Node {
 
 struct App {
     nodes: Vec<Node>,
-    queue: VecDeque<(usize, Message)>,
+    queue: VecDeque<(usize, usize, Message)>,
     log: VecDeque<String>,
     selected: usize,
     tick: u64,
+    partitioned: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -74,6 +75,7 @@ fn run_app(
                     KeyCode::Char('p') => app.submit_random_proposal(),
                     KeyCode::Char('h') => app.broadcast_heartbeat(),
                     KeyCode::Char('v') => app.toggle_policy(app.selected),
+                    KeyCode::Char('x') => app.toggle_partition(),
                     _ => {}
                 }
             }
@@ -110,6 +112,7 @@ impl App {
             log: VecDeque::new(),
             selected: 0,
             tick: 0,
+            partitioned: false,
         };
 
         app.bootstrap_gossip();
@@ -128,15 +131,25 @@ impl App {
             let id = self.nodes[i].id;
             for j in 0..self.nodes.len() {
                 if i != j {
-                    self.enqueue(j, Message::Hello { node: id });
+                    self.enqueue(i, j, Message::Hello { node: id });
                 }
             }
         }
         self.push_log("boot: peer discovery (Hello flood)");
     }
 
-    fn enqueue(&mut self, to: usize, msg: Message) {
-        self.queue.push_back((to, msg));
+    fn enqueue(&mut self, from: usize, to: usize, msg: Message) {
+        self.queue.push_back((from, to, msg));
+    }
+
+    fn can_deliver(&self, from: usize, to: usize) -> bool {
+        if !self.partitioned {
+            return true;
+        }
+        let split = (self.nodes.len() / 2).max(1);
+        let a = from < split;
+        let b = to < split;
+        a == b
     }
 
     fn step(&mut self) {
@@ -144,9 +157,15 @@ impl App {
 
         let deliver = (self.nodes.len() * 2).max(1);
         for _ in 0..deliver {
-            let Some((to, msg)) = self.queue.pop_front() else {
+            let Some((from, to, msg)) = self.queue.pop_front() else {
                 break;
             };
+
+            if !self.can_deliver(from, to) {
+                self.push_log(format!("net: DROP n{} -> n{} (partition)", from, to));
+                continue;
+            }
+
             let events = self.nodes[to].rt.apply(msg);
             for e in events {
                 self.push_log(format!("n{}: {:?}", to, e));
@@ -167,7 +186,7 @@ impl App {
             let id = self.nodes[i].id;
             for j in 0..self.nodes.len() {
                 if i != j {
-                    self.enqueue(j, Message::Heartbeat { node: id });
+                    self.enqueue(i, j, Message::Heartbeat { node: id });
                 }
             }
         }
@@ -184,7 +203,7 @@ impl App {
         let p = Proposal::with_id(pid, "enable_feature", b"spectacular_syscall".to_vec());
 
         for i in 0..self.nodes.len() {
-            self.enqueue(i, Message::Proposal(p.clone()));
+            self.enqueue(proposer, i, Message::Proposal(p.clone()));
         }
 
         self.push_log(format!("law: proposal {} by n{}", hex32(pid.0), proposer));
@@ -210,6 +229,7 @@ impl App {
                 for j in 0..self.nodes.len() {
                     if i != j {
                         self.enqueue(
+                            i,
                             j,
                             Message::Vote {
                                 from,
@@ -232,6 +252,21 @@ impl App {
             idx, self.nodes[idx].auto_accept
         ));
     }
+
+    fn toggle_partition(&mut self) {
+        self.partitioned = !self.partitioned;
+        if self.partitioned {
+            let split = (self.nodes.len() / 2).max(1);
+            self.push_log(format!(
+                "scenario: NETWORK PARTITION enabled (n0..n{} | n{}..n{}) (press x)",
+                split.saturating_sub(1),
+                split,
+                self.nodes.len().saturating_sub(1)
+            ));
+        } else {
+            self.push_log("scenario: network healed (press x)".to_string());
+        }
+    }
 }
 
 fn ui(f: &mut ratatui::Frame, app: &App) {
@@ -246,10 +281,26 @@ fn ui(f: &mut ratatui::Frame, app: &App) {
         ])
         .split(size);
 
+    let partition_status = if app.partitioned {
+        "PARTITIONED"
+    } else {
+        "HEALTHY"
+    };
+
     let header = Paragraph::new(Line::from(vec![
-        Span::styled("Micronazione Live", Style::default().fg(Color::Cyan)),
+        Span::styled("Micronet Live", Style::default().fg(Color::Cyan)),
         Span::raw("  "),
-        Span::raw("q=quit  p=propose  h=heartbeat  v=toggle auto-vote  "),
+        Span::raw("q=quit  p=propose  h=heartbeat  v=toggle auto-vote  x=partition/heal"),
+        Span::raw("  "),
+        Span::styled(
+            format!("net={partition_status}"),
+            Style::default().fg(if app.partitioned {
+                Color::Red
+            } else {
+                Color::Green
+            }),
+        ),
+        Span::raw("  "),
         Span::raw("←/→ select node"),
     ]))
     .block(Block::default().borders(Borders::ALL).title("controls"));
