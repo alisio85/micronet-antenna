@@ -4,6 +4,7 @@ members = [
     "micronet-antenna-core",
     "foundry-demo",
     "micronet-live",
+    "micronet-os",
 ]
 
 [package]

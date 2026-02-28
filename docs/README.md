@@ -4,6 +4,7 @@ This folder is the long-form documentation for **Micronet Antenna**.
 
 ## Contents
 
+- `USER_MANUAL.md`
 - `00_vision.md`
 - `01_architecture.md`
 - `02_protocol.md`

@@ -2,7 +2,7 @@
 
 `micronet-antenna` is a Rust crate that provides the **"spirit"** of a network-native micronation kernel: identity, proposal/vote flows, and global-state synchronization primitives.
 
-This crate is designed to be integrated into a bare-metal kernel skeleton (e.g. via a separate boot/memory project such as `os_kernel_foundry`).
+This repository also includes `micronet-os`, a workspace member that turns the components into an **actual Micronation OS composition** built on `os_kernel_foundry`.
 
 ## Vision (network-native micronation)
 
@@ -17,15 +17,20 @@ This is an **early, minimal, well-documented foundation**:
 
 - Message types (proposal/vote/heartbeat)
 - Node identity (`NodeId`)
-- Deterministic global state update model (`GlobalState`)
+- A deterministic global state update model (`GlobalState`)
 - A small in-process runtime (`Runtime`) to apply messages
 - A simple UDP transport (std-only) for peer discovery/gossip
 
-## Integration with `os_kernel_foundry`
+## Micronation OS (built on `os_kernel_foundry`)
 
-If you're using `os_kernel_foundry` as the bare-metal kernel skeleton, see:
+This repository is not just an integration example: it contains an **actual Micronation OS composition**.
 
-- `INTEGRATION_OS_KERNEL_FOUNDRY.md`
+- `micronet-os/` (workspace member, `publish = false`)
+
+See:
+
+- `docs/USER_MANUAL.md`
+- `docs/07_integrations/os_kernel_foundry.md`
 
 ## Install
 
@@ -52,7 +57,7 @@ assert!(state.proposals().len() >= 1);
 cargo run --bin micronet-antenna -- --help
 ```
 
-## Micronazione Live (TUI demo)
+## Micronation Live (TUI demo)
 
 From the workspace root:
 

@@ -351,6 +351,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "micronet-os"
+version = "0.1.0"
+dependencies = [
+ "micronet-antenna-core",
+ "os_kernel_foundry",
+]
+
+[[package]]
 name = "mio"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
