@@ -1,0 +1,11 @@
+[package]
+name = "foundry-demo"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+os_kernel_foundry = "0.1.5"
+micronet-antenna-core = { path = "../micronet-antenna-core", features = ["std"] }
+
+[dev-dependencies]

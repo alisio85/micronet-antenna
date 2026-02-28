@@ -1,0 +1,40 @@
+[workspace]
+members = [
+    ".",
+    "micronet-antenna-core",
+    "foundry-demo",
+    "micronet-live",
+]
+
+[package]
+name = "micronet-antenna"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Network-native micronation kernel spirit: identity, proposals/votes, global state sync primitives."
+homepage = "https://github.com/your-org/micronet-antenna"
+repository = "https://github.com/your-org/micronet-antenna"
+readme = "README.md"
+keywords = ["p2p", "micronation", "consensus", "gossip", "distributed"]
+categories = ["network-programming", "cryptography"]
+
+[features]
+default = ["std"]
+std = [
+    "dep:postcard",
+    "dep:thiserror",
+    "micronet-antenna-core/std",
+    "micronet-antenna-core/serde",
+]
+
+[dependencies]
+micronet-antenna-core = { version = "0.1.0", path = "micronet-antenna-core", default-features = false }
+postcard = { version = "1.0", features = ["use-std"], optional = true }
+thiserror = { version = "2", optional = true }
+
+[dev-dependencies]
+serde_json = "1.0"
+
+[[bin]]
+name = "micronet-antenna"
+path = "src/bin/micronet-antenna.rs"

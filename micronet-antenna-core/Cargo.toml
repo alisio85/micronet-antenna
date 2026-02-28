@@ -1,0 +1,18 @@
+[package]
+name = "micronet-antenna-core"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "no_std core primitives for micronet-antenna (identity, messages, proposals/votes, deterministic state/runtime)."
+homepage = "https://github.com/your-org/micronet-antenna"
+repository = "https://github.com/your-org/micronet-antenna"
+
+[features]
+default = ["alloc"]
+alloc = []
+std = ["alloc", "dep:rand"]
+serde = ["alloc", "dep:serde"]
+
+[dependencies]
+rand = { version = "0.8", optional = true }
+serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
